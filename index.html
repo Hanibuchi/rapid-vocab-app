@@ -85,13 +85,23 @@
   .file-empty { padding: 16px; color: var(--color-muted); text-align: center; font-size: 0.9rem; }
 
   .btn-delete {
-    background: none;
-    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-incorrect);
+    border-radius: 8px;
     color: var(--color-incorrect);
     cursor: pointer;
-    font-size: 1rem;
-    padding: 4px 8px;
+    font-size: 0.9rem;
+    line-height: 1;
+    padding: 0;
+    flex-shrink: 0;
   }
+  .btn-delete:hover { background: var(--color-incorrect); color: #fff; }
+  .btn-delete:active { background: var(--color-incorrect); color: #fff; opacity: 0.8; }
 
   .upload-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
   .btn {
