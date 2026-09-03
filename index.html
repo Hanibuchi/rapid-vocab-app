@@ -1460,6 +1460,7 @@ whereby, それによって〜する`,
 
     document.getElementById("btn-start").addEventListener("click", async () => {
       getAudioCtx();
+      primeSpeechSynthesis();
       const pool = await computeEligibleWordPool(currentSettings);
       if (pool.length === 0) return;
       startQuiz(pool, { ...currentSettings });
@@ -1852,6 +1853,13 @@ whereby, それによって〜する`,
     return enVoices.reduce((best, v) =>
       scoreVoiceForQuality(v) > scoreVoiceForQuality(best) ? v : best
     );
+  }
+
+  function primeSpeechSynthesis() {
+    if (!("speechSynthesis" in window)) return;
+    const utterance = new SpeechSynthesisUtterance("");
+    utterance.volume = 0;
+    speechSynthesis.speak(utterance);
   }
 
   function speakWord(word) {
