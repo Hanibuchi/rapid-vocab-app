@@ -1467,6 +1467,14 @@ whereby, それによって〜する`,
     document.getElementById("btn-close-help").addEventListener("click", () => {
       document.getElementById("modal-help").close();
     });
+    document.getElementById("modal-help").addEventListener("click", (e) => {
+      const dialog = e.currentTarget;
+      const rect = dialog.getBoundingClientRect();
+      const clickedInsideDialog =
+        e.clientX >= rect.left && e.clientX <= rect.right &&
+        e.clientY >= rect.top && e.clientY <= rect.bottom;
+      if (!clickedInsideDialog) dialog.close();
+    });
     document.getElementById("btn-cancel-delete").addEventListener("click", () => {
       pendingDeleteFileName = null;
       document.getElementById("modal-confirm-delete").close();
