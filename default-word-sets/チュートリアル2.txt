@@ -1,0 +1,10 @@
+start, 始める
+add, 追加する
+learn, 学ぶ
+step, 一歩・段階
+check, 確認する
+try, 挑戦する・試す
+practice, 練習する
+clear, 達成する・クリアする
+goal, 目標・ゴール
+success, 成功・達成
