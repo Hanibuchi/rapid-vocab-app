@@ -1764,13 +1764,43 @@ whereby, それによって〜する`,
   /* ===================== 音声・SFXヘルパー ===================== */
   let cachedEnglishVoice = null;
 
+  const FEMALE_VOICE_NAME_HINTS = [
+    "female", "samantha", "victoria", "ava", "allison", "susan", "karen",
+    "moira", "tessa", "fiona", "kate", "serena", "zira", "aria", "jenny",
+    "michelle", "emma", "joanna", "salli", "kimberly", "ivy", "nicky",
+    "stephanie", "laura", "google us english",
+  ];
+  const MALE_VOICE_NAME_HINTS = [
+    "male", "daniel", "alex", "fred", "tom", "david", "mark", "guy",
+    "ryan", "george", "james", "oliver",
+  ];
+
+  function scoreVoiceForQuality(voice) {
+    const name = voice.name.toLowerCase();
+    const lang = (voice.lang || "").toLowerCase();
+    let score = 0;
+
+    if (lang === "en-us") score += 20;
+    else if (lang.startsWith("en")) score += 10;
+
+    if (/natural|neural|premium|enhanced/.test(name)) score += 60;
+    if (/online/.test(name)) score += 10;
+    if (!voice.localService) score += 5;
+
+    if (FEMALE_VOICE_NAME_HINTS.some((hint) => name.includes(hint))) score += 30;
+    if (MALE_VOICE_NAME_HINTS.some((hint) => name.includes(hint))) score -= 30;
+
+    return score;
+  }
+
   function pickEnglishVoice() {
     const voices = speechSynthesis.getVoices();
     if (!voices || voices.length === 0) return null;
     const enVoices = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith("en"));
     if (enVoices.length === 0) return null;
-    const usVoice = enVoices.find((v) => v.lang.toLowerCase().includes("us"));
-    return usVoice || enVoices[0];
+    return enVoices.reduce((best, v) =>
+      scoreVoiceForQuality(v) > scoreVoiceForQuality(best) ? v : best
+    );
   }
 
   function speakWord(word) {
