@@ -1346,15 +1346,17 @@ whereby, それによって〜する`,
   }
 
   function makeFileListSortable(listEl, onReorder) {
+    const AUTO_SCROLL_EDGE = 32;
+    const AUTO_SCROLL_MAX_SPEED = 12;
     let draggingRow = null;
+    let lastClientY = 0;
+    let scrollRAF = null;
 
     function getRows() {
       return Array.from(listEl.querySelectorAll(".file-row"));
     }
 
-    function handlePointerMove(e) {
-      if (!draggingRow) return;
-      const y = e.clientY;
+    function reposition(y) {
       const siblings = getRows().filter((r) => r !== draggingRow);
       let nextSibling = null;
       for (const sibling of siblings) {
@@ -1371,10 +1373,44 @@ whereby, それによって〜する`,
       }
     }
 
+    function autoScrollStep() {
+      if (!draggingRow) {
+        scrollRAF = null;
+        return;
+      }
+      const rect = listEl.getBoundingClientRect();
+      let delta = 0;
+      if (lastClientY < rect.top + AUTO_SCROLL_EDGE) {
+        const ratio = (rect.top + AUTO_SCROLL_EDGE - lastClientY) / AUTO_SCROLL_EDGE;
+        delta = -Math.ceil(ratio * AUTO_SCROLL_MAX_SPEED);
+      } else if (lastClientY > rect.bottom - AUTO_SCROLL_EDGE) {
+        const ratio = (lastClientY - (rect.bottom - AUTO_SCROLL_EDGE)) / AUTO_SCROLL_EDGE;
+        delta = Math.ceil(ratio * AUTO_SCROLL_MAX_SPEED);
+      }
+      if (delta !== 0) {
+        const before = listEl.scrollTop;
+        listEl.scrollTop += delta;
+        if (listEl.scrollTop !== before) {
+          reposition(lastClientY);
+        }
+      }
+      scrollRAF = requestAnimationFrame(autoScrollStep);
+    }
+
+    function handlePointerMove(e) {
+      if (!draggingRow) return;
+      lastClientY = e.clientY;
+      reposition(lastClientY);
+    }
+
     async function handlePointerUp() {
       if (!draggingRow) return;
       const row = draggingRow;
       draggingRow = null;
+      if (scrollRAF) {
+        cancelAnimationFrame(scrollRAF);
+        scrollRAF = null;
+      }
       row.classList.remove("dragging");
       document.removeEventListener("pointermove", handlePointerMove);
       document.removeEventListener("pointerup", handlePointerUp);
@@ -1386,9 +1422,11 @@ whereby, それによって〜する`,
       handle.addEventListener("pointerdown", (e) => {
         e.preventDefault();
         draggingRow = row;
+        lastClientY = e.clientY;
         row.classList.add("dragging");
         document.addEventListener("pointermove", handlePointerMove);
         document.addEventListener("pointerup", handlePointerUp);
+        scrollRAF = requestAnimationFrame(autoScrollStep);
       });
     };
   }
