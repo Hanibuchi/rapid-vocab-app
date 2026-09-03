@@ -115,6 +115,17 @@
   .row-label { font-size: 0.95rem; }
   .row-sub { font-size: 0.78rem; color: var(--color-muted); }
 
+  .time-limit-input { display: flex; align-items: center; gap: 6px; }
+  .time-limit-input input {
+    width: 56px;
+    padding: 6px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    text-align: center;
+  }
+  .time-limit-input span { color: var(--color-muted); font-size: 0.9rem; }
+
   .radio-group { display: flex; gap: 12px; }
   .radio-option {
     flex: 1;
@@ -295,6 +306,16 @@
       <h2>設定</h2>
       <div class="row">
         <div>
+          <div class="row-label">制限時間</div>
+        </div>
+        <div class="time-limit-input">
+          <input type="number" id="input-time-limit" min="1" max="30" step="1">
+          <span>秒</span>
+          <button type="button" class="btn secondary small" id="btn-reset-time-limit">デフォルトに戻す</button>
+        </div>
+      </div>
+      <div class="row">
+        <div>
           <div class="row-label">時間制限で自動的に次へ進む</div>
         </div>
         <label class="switch">
@@ -413,7 +434,6 @@ water,水</pre>
   const STORE_FILES = "files";
   const STORE_WORDS = "words";
   const STORE_SETTINGS = "settings";
-  const TIME_LIMIT_MS = 3000;
   const CORRECT_DELAY_MS = 1000;
   const INCORRECT_DELAY_MS = 2000;
   const MOTIVATION_DELAY_MS = 1500;
@@ -438,8 +458,11 @@ water,水</pre>
     autoAdvance: true,
     onlyMarked: false,
     showSpelling: true,
+    timeLimitSec: 3,
     defaultsSeeded: false,
   };
+  const MIN_TIME_LIMIT_SEC = 1;
+  const MAX_TIME_LIMIT_SEC = 30;
 
   const DEFAULT_WORD_SETS = {
     "AWLレベル1": `analyse, 分析する
@@ -1126,7 +1149,7 @@ whereby, それによって〜する`,
   async function getSettings() {
     const { store } = await txStore(STORE_SETTINGS, "readonly");
     const result = await reqToPromise(store.get("global"));
-    return result || { ...DEFAULT_SETTINGS };
+    return { ...DEFAULT_SETTINGS, ...result };
   }
 
   function putSettings(settings) {
@@ -1376,6 +1399,7 @@ whereby, それによって〜する`,
     document.getElementById("toggle-auto-advance").checked = currentSettings.autoAdvance;
     document.getElementById("toggle-only-marked").checked = currentSettings.onlyMarked;
     document.getElementById("toggle-show-spelling").checked = currentSettings.showSpelling;
+    document.getElementById("input-time-limit").value = currentSettings.timeLimitSec;
     applyModeUI();
     await renderFileList();
     await refreshStartButtonState();
@@ -1402,6 +1426,20 @@ whereby, それによって〜する`,
       });
     });
 
+    document.getElementById("input-time-limit").addEventListener("change", (e) => {
+      let value = Math.round(Number(e.target.value));
+      if (!Number.isFinite(value)) value = DEFAULT_SETTINGS.timeLimitSec;
+      value = Math.min(MAX_TIME_LIMIT_SEC, Math.max(MIN_TIME_LIMIT_SEC, value));
+      e.target.value = value;
+      currentSettings.timeLimitSec = value;
+      putSettings(currentSettings);
+    });
+    document.getElementById("btn-reset-time-limit").addEventListener("click", () => {
+      const value = DEFAULT_SETTINGS.timeLimitSec;
+      document.getElementById("input-time-limit").value = value;
+      currentSettings.timeLimitSec = value;
+      putSettings(currentSettings);
+    });
     document.getElementById("toggle-auto-advance").addEventListener("change", (e) => {
       currentSettings.autoAdvance = e.target.checked;
       putSettings(currentSettings);
@@ -1537,17 +1575,18 @@ whereby, それによって〜する`,
       choicesEl.appendChild(btn);
     });
 
-    startTimerVisual();
-    session.currentQuestion.timerId = setTimeout(onTimeExpired, TIME_LIMIT_MS);
+    const timeLimitMs = session.settings.timeLimitSec * 1000;
+    startTimerVisual(timeLimitMs);
+    session.currentQuestion.timerId = setTimeout(onTimeExpired, timeLimitMs);
   }
 
-  function startTimerVisual() {
+  function startTimerVisual(timeLimitMs) {
     const bar = document.getElementById("timer-bar");
     bar.style.transition = "none";
     bar.style.width = "100%";
     void bar.offsetWidth;
     requestAnimationFrame(() => {
-      bar.style.transition = `width ${TIME_LIMIT_MS}ms linear`;
+      bar.style.transition = `width ${timeLimitMs}ms linear`;
       bar.style.width = "0%";
     });
   }
@@ -1574,8 +1613,9 @@ whereby, それによって〜する`,
     clearTimeout(q.timerId);
     disableChoiceButtons();
 
+    const timeLimitMs = session.settings.timeLimitSec * 1000;
     const elapsed = performance.now() - q.startTimestamp;
-    const remainingFraction = Math.max(0, (TIME_LIMIT_MS - elapsed) / TIME_LIMIT_MS);
+    const remainingFraction = Math.max(0, (timeLimitMs - elapsed) / timeLimitMs);
     const isCorrect = choiceIndex !== null && choiceIndex === q.correctIndex;
     const wordItem = q.word;
 
