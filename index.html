@@ -199,6 +199,19 @@
   .choice-btn.correct-answer { border-color: var(--color-correct); background: #ecfdf3; color: #15803d; font-weight: bold; }
   .choice-btn.wrong-answer { border-color: var(--color-incorrect); background: #fef2f2; color: #b91c1c; }
 
+  .btn-dont-know {
+    display: block;
+    width: 100%;
+    background: none;
+    border: 1px dashed var(--color-border);
+    color: var(--color-muted);
+    border-radius: 10px;
+    padding: 10px 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .btn-dont-know:disabled { cursor: not-allowed; opacity: 0.5; }
+
   .quiz-footer { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 8px; }
   .mark-row { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; }
 
@@ -329,6 +342,7 @@
     </div>
 
     <div class="choices" id="choices"></div>
+    <button type="button" class="btn-dont-know" id="btn-dont-know">わからない</button>
 
     <div class="quiz-footer">
       <div class="mark-row">
@@ -1509,6 +1523,8 @@ whereby, それによって〜する`,
 
     document.getElementById("toggle-mark-quiz").checked = wordItem.mark === true;
 
+    document.getElementById("btn-dont-know").disabled = false;
+
     const choicesEl = document.getElementById("choices");
     choicesEl.innerHTML = "";
     choiceItems.forEach((choice, idx) => {
@@ -1549,6 +1565,7 @@ whereby, それによって〜する`,
 
   function disableChoiceButtons() {
     document.querySelectorAll(".choice-btn").forEach((btn) => (btn.disabled = true));
+    document.getElementById("btn-dont-know").disabled = true;
   }
 
   function handleAnswer(choiceIndex) {
@@ -1635,6 +1652,9 @@ whereby, それによって〜する`,
       if (resultEntry) resultEntry.mark = wordItem.mark;
     });
     document.getElementById("btn-back-to-settings").addEventListener("click", abortToSettings);
+    document.getElementById("btn-dont-know").addEventListener("click", () => {
+      handleAnswer(null);
+    });
   }
 
   /* ===================== 振り返り画面ロジック ===================== */
