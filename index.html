@@ -1482,11 +1482,21 @@ whereby, それによって〜する`,
         e.clientY >= rect.top && e.clientY <= rect.bottom;
       if (!clickedInsideDialog) dialog.close();
     });
-    document.getElementById("btn-cancel-delete").addEventListener("click", () => {
-      pendingDeleteFileName = null;
-      document.getElementById("modal-confirm-delete").close();
-    });
+    document.getElementById("btn-cancel-delete").addEventListener("click", cancelDeleteFile);
     document.getElementById("btn-confirm-delete").addEventListener("click", confirmDeleteFile);
+    document.getElementById("modal-confirm-delete").addEventListener("click", (e) => {
+      const dialog = e.currentTarget;
+      const rect = dialog.getBoundingClientRect();
+      const clickedInsideDialog =
+        e.clientX >= rect.left && e.clientX <= rect.right &&
+        e.clientY >= rect.top && e.clientY <= rect.bottom;
+      if (!clickedInsideDialog) cancelDeleteFile();
+    });
+  }
+
+  function cancelDeleteFile() {
+    pendingDeleteFileName = null;
+    document.getElementById("modal-confirm-delete").close();
   }
 
   /* ===================== 出題（クイズ）ロジック ===================== */
