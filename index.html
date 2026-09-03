@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>英単語学習アプリ</title>
+<style>
+  :root {
+    --color-bg: #f4f6fb;
+    --color-surface: #ffffff;
+    --color-primary: #4a6cf7;
+    --color-primary-dark: #3554d1;
+    --color-text: #1f2430;
+    --color-muted: #6b7280;
+    --color-border: #e2e6ee;
+    --color-correct: #22c55e;
+    --color-incorrect: #ef4444;
+    --color-mark: #f59e0b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic", "Segoe UI", sans-serif;
+    height: 100%;
+  }
+  #app {
+    max-width: 640px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+  }
+  .screen { display: none; flex: 1; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  h1 { font-size: 1.4rem; margin: 8px 0 16px; }
+  h2 { font-size: 1.1rem; margin: 0 0 8px; }
+
+  .card {
+    background: var(--color-surface);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  .file-list {
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+  }
+  .file-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--color-border);
+    gap: 8px;
+  }
+  .file-row:last-child { border-bottom: none; }
+  .file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.95rem;
+  }
+  .file-count { color: var(--color-muted); font-size: 0.8rem; margin-right: 4px; }
+  .file-empty { padding: 16px; color: var(--color-muted); text-align: center; font-size: 0.9rem; }
+
+  .btn-delete {
+    background: none;
+    border: none;
+    color: var(--color-incorrect);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 4px 8px;
+  }
+
+  .upload-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+  .btn {
+    display: inline-block;
+    background: var(--color-primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    text-align: center;
+  }
+  .btn:disabled { background: #b9c1d9; cursor: not-allowed; }
+  .btn.secondary { background: var(--color-surface); color: var(--color-primary); border: 1px solid var(--color-primary); }
+  .btn.danger { background: var(--color-incorrect); }
+  .btn.small { padding: 6px 10px; font-size: 0.85rem; }
+  .btn-block { width: 100%; }
+
+  .row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
+  .row + .row { border-top: 1px solid var(--color-border); }
+  .row-label { font-size: 0.95rem; }
+  .row-sub { font-size: 0.78rem; color: var(--color-muted); }
+
+  .radio-group { display: flex; gap: 12px; }
+  .radio-option {
+    flex: 1;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  .radio-option input { display: none; }
+  .radio-option.selected {
+    border-color: var(--color-primary);
+    background: #eef1ff;
+    color: var(--color-primary-dark);
+    font-weight: bold;
+  }
+
+  .switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background-color: #ccc; transition: .2s; border-radius: 24px;
+  }
+  .slider:before {
+    position: absolute; content: "";
+    height: 18px; width: 18px; left: 3px; bottom: 3px;
+    background-color: white; transition: .2s; border-radius: 50%;
+  }
+  .switch input:checked + .slider { background-color: var(--color-primary); }
+  .switch input:checked + .slider:before { transform: translateX(20px); }
+  .switch input:disabled + .slider { opacity: 0.4; cursor: not-allowed; }
+
+  .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .link-btn {
+    background: none; border: none; color: var(--color-primary);
+    cursor: pointer; font-size: 0.85rem; text-decoration: underline; padding: 4px;
+  }
+
+  /* Quiz screen */
+  .quiz-header { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.85rem; color: var(--color-muted); margin-bottom: 6px; }
+  .timer-track { height: 6px; background: var(--color-border); border-radius: 3px; overflow: hidden; margin-bottom: 20px; }
+  .timer-bar { height: 100%; width: 100%; background: var(--color-primary); border-radius: 3px; }
+  .prompt-area {
+    text-align: center;
+    padding: 28px 12px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+  .prompt-text { font-size: 1.8rem; font-weight: bold; word-break: break-word; }
+  .feedback-text { font-size: 1.6rem; font-weight: bold; min-height: 2.2rem; }
+  .feedback-text.correct { color: var(--color-correct); }
+  .feedback-text.incorrect { color: var(--color-incorrect); }
+  .btn-audio {
+    background: var(--color-surface);
+    border: 2px solid var(--color-primary);
+    color: var(--color-primary);
+    border-radius: 50%;
+    width: 56px; height: 56px;
+    font-size: 1.4rem;
+    cursor: pointer;
+  }
+  .btn-audio:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
+  .choice-btn {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 14px 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .choice-btn:disabled { cursor: not-allowed; }
+  .choice-btn.correct-answer { border-color: var(--color-correct); background: #ecfdf3; color: #15803d; font-weight: bold; }
+  .choice-btn.wrong-answer { border-color: var(--color-incorrect); background: #fef2f2; color: #b91c1c; }
+
+  .quiz-footer { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 8px; }
+  .mark-row { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; }
+
+  /* Review screen */
+  .motivation-overlay {
+    position: fixed; inset: 0; background: rgba(255,255,255,0.92);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.2rem; font-weight: bold; color: var(--color-primary);
+    z-index: 50;
+  }
+  table.review-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  table.review-table th, table.review-table td {
+    padding: 8px 6px; border-bottom: 1px solid var(--color-border); text-align: left;
+  }
+  table.review-table td.result-correct { color: var(--color-correct); font-weight: bold; }
+  table.review-table td.result-incorrect { color: var(--color-incorrect); font-weight: bold; }
+  .review-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .review-scroll { max-height: 360px; overflow-y: auto; }
+
+  dialog {
+    border: none; border-radius: 12px; padding: 20px; max-width: 480px; width: 90%;
+    color: var(--color-text);
+  }
+  dialog::backdrop { background: rgba(0,0,0,0.4); }
+  dialog h2 { margin-top: 0; }
+  dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  dialog pre { background: #f4f6fb; padding: 10px; border-radius: 8px; font-size: 0.85rem; overflow-x: auto; }
+
+  #toast-container {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; gap: 8px; z-index: 100;
+  }
+  .toast {
+    background: #1f2430; color: #fff; padding: 10px 16px; border-radius: 8px;
+    font-size: 0.85rem; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== SETTINGS SCREEN ===== -->
+  <section id="screen-settings" class="screen active">
+    <div class="top-bar">
+      <h1>英単語学習アプリ</h1>
+      <button type="button" class="link-btn" id="btn-open-help">使い方・ファイル形式</button>
+    </div>
+
+    <div class="card">
+      <h2>単語セット</h2>
+      <div class="file-list" id="file-list"></div>
+      <div class="upload-row">
+        <input type="file" id="file-input" accept=".txt,.csv" multiple style="flex:1;">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>モード</h2>
+      <div class="radio-group" id="mode-group">
+        <label class="radio-option" data-mode="en-ja">
+          <input type="radio" name="mode" value="en-ja">
+          英語 → 日本語
+        </label>
+        <label class="radio-option" data-mode="ja-en">
+          <input type="radio" name="mode" value="ja-en">
+          日本語 → 英語
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>設定</h2>
+      <div class="row">
+        <div>
+          <div class="row-label">時間制限で自動的に次へ進む</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="toggle-auto-advance">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="row">
+        <div>
+          <div class="row-label">印のついた単語だけ出題する</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="toggle-only-marked">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="row" id="row-show-spelling">
+        <div>
+          <div class="row-label">綴りを表示する</div>
+          <div class="row-sub">（英語→日本語モードのみ有効）</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="toggle-show-spelling">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div id="eligible-count" class="row-sub" style="margin-bottom:8px;"></div>
+    <button type="button" class="btn btn-block" id="btn-start" disabled>開始する</button>
+  </section>
+
+  <!-- ===== QUIZ SCREEN ===== -->
+  <section id="screen-quiz" class="screen">
+    <div class="quiz-header">
+      <span id="quiz-filename"></span>
+      <span id="quiz-progress"></span>
+    </div>
+    <div class="timer-track"><div class="timer-bar" id="timer-bar"></div></div>
+
+    <div class="prompt-area">
+      <div class="prompt-text" id="prompt-text"></div>
+      <button type="button" class="btn-audio" id="btn-play-audio" title="発音を再生" style="display:none;">&#128266;</button>
+      <div class="feedback-text" id="feedback-text"></div>
+    </div>
+
+    <div class="choices" id="choices"></div>
+
+    <div class="quiz-footer">
+      <div class="mark-row">
+        <label class="switch">
+          <input type="checkbox" id="toggle-mark-quiz">
+          <span class="slider"></span>
+        </label>
+        <span>印をつける</span>
+      </div>
+      <button type="button" class="btn secondary small" id="btn-back-to-settings">設定へ戻る</button>
+    </div>
+  </section>
+
+  <!-- ===== REVIEW SCREEN ===== -->
+  <section id="screen-review" class="screen">
+    <h1>振り返り</h1>
+    <div class="card review-scroll">
+      <table class="review-table">
+        <thead>
+          <tr><th>単語</th><th>結果</th><th>印</th></tr>
+        </thead>
+        <tbody id="review-tbody"></tbody>
+      </table>
+    </div>
+    <div class="review-actions">
+      <button type="button" class="btn btn-block" id="btn-retry-same">同じ設定でリトライ</button>
+      <button type="button" class="btn secondary btn-block" id="btn-retry-missed">間違えた問題だけリトライ</button>
+      <button type="button" class="btn secondary btn-block" id="btn-back-to-settings-2">設定画面に戻る</button>
+    </div>
+  </section>
+
+  <div id="motivation-overlay" class="motivation-overlay" style="display:none;"></div>
+</div>
+
+<!-- ===== MODALS ===== -->
+<dialog id="modal-help">
+  <h2>使い方・ファイル形式について</h2>
+  <p>設定画面のファイル選択から、単語データのファイルをアップロードしてください。</p>
+  <p><strong>対応ファイル形式:</strong> <code>.txt</code> または <code>.csv</code></p>
+  <p><strong>ファイルの内容:</strong> 1行につき1単語、以下の形式で記述してください。</p>
+  <pre>apple,りんご
+book,本
+water,水</pre>
+  <p>同じ単語がファイル内に複数記述されている場合は、最初の1件のみが登録されます。<br>
+  同じ名前のファイル（拡張子を除く）は重複してアップロードできません。</p>
+  <div class="dialog-actions">
+    <button type="button" class="btn" id="btn-close-help">閉じる</button>
+  </div>
+</dialog>
+
+<dialog id="modal-confirm-delete">
+  <h2>ファイルの削除</h2>
+  <p id="confirm-delete-message"></p>
+  <div class="dialog-actions">
+    <button type="button" class="btn secondary" id="btn-cancel-delete">キャンセル</button>
+    <button type="button" class="btn danger" id="btn-confirm-delete">削除する</button>
+  </div>
+</dialog>
+
+<div id="toast-container"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ===================== 定数 ===================== */
+  const DB_NAME = "rapidVocabDB";
+  const DB_VERSION = 1;
+  const STORE_FILES = "files";
+  const STORE_WORDS = "words";
+  const STORE_SETTINGS = "settings";
+  const TIME_LIMIT_MS = 3000;
+  const CORRECT_DELAY_MS = 1000;
+  const INCORRECT_DELAY_MS = 2000;
+  const MOTIVATION_DELAY_MS = 1500;
+  const MAX_TRANSLATION_LEN = 14;
+
+  const FALLBACK_WORDS = [
+    { word: "apple", translation: "りんご" },
+    { word: "book", translation: "本" },
+    { word: "water", translation: "水" },
+    { word: "friend", translation: "友達" },
+    { word: "school", translation: "学校" },
+    { word: "happy", translation: "幸せな" },
+    { word: "run", translation: "走る" },
+    { word: "time", translation: "時間" },
+    { word: "music", translation: "音楽" },
+    { word: "dog", translation: "犬" },
+  ];
+
+  const DEFAULT_SETTINGS = {
+    id: "global",
+    mode: "en-ja",
+    autoAdvance: true,
+    onlyMarked: false,
+    showSpelling: true,
+  };
+
+  /* ===================== DBレイヤー ===================== */
+  let dbInstance = null;
+
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = (event) => {
+        const db = req.result;
+        if (event.oldVersion < 1) {
+          db.createObjectStore(STORE_FILES, { keyPath: "fileName" });
+          const wordsStore = db.createObjectStore(STORE_WORDS, { keyPath: "id" });
+          wordsStore.createIndex("by_fileName", "fileName", { unique: false });
+          wordsStore.createIndex("by_mark", "mark", { unique: false });
+          db.createObjectStore(STORE_SETTINGS, { keyPath: "id" });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function getDB() {
+    if (!dbInstance) dbInstance = await openDB();
+    return dbInstance;
+  }
+
+  async function txStore(storeName, mode) {
+    const db = await getDB();
+    const tx = db.transaction(storeName, mode);
+    return { tx, store: tx.objectStore(storeName) };
+  }
+
+  function reqToPromise(req) {
+    return new Promise((resolve, reject) => {
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function getAllFiles() {
+    const { store } = await txStore(STORE_FILES, "readonly");
+    return reqToPromise(store.getAll());
+  }
+
+  async function getFile(fileName) {
+    const { store } = await txStore(STORE_FILES, "readonly");
+    return reqToPromise(store.get(fileName));
+  }
+
+  async function getWordsByFile(fileName) {
+    const { store } = await txStore(STORE_WORDS, "readonly");
+    const idx = store.index("by_fileName");
+    return reqToPromise(idx.getAll(IDBKeyRange.only(fileName)));
+  }
+
+  async function getWord(id) {
+    const { store } = await txStore(STORE_WORDS, "readonly");
+    return reqToPromise(store.get(id));
+  }
+
+  function putWord(word) {
+    getDB().then((db) => {
+      const tx = db.transaction(STORE_WORDS, "readwrite");
+      tx.objectStore(STORE_WORDS).put(word);
+      tx.onerror = () => console.error("putWord failed", tx.error);
+    });
+  }
+
+  async function putFileRecord(fileRecord) {
+    const { store, tx } = await txStore(STORE_FILES, "readwrite");
+    store.put(fileRecord);
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function addFileWithWords(fileRecord, wordRecords) {
+    const db = await getDB();
+    const tx = db.transaction([STORE_FILES, STORE_WORDS], "readwrite");
+    tx.objectStore(STORE_FILES).put(fileRecord);
+    const wordsStore = tx.objectStore(STORE_WORDS);
+    wordRecords.forEach((w) => wordsStore.put(w));
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function deleteFileAndWords(fileName) {
+    const db = await getDB();
+    const tx = db.transaction([STORE_FILES, STORE_WORDS], "readwrite");
+    tx.objectStore(STORE_FILES).delete(fileName);
+    const wordsStore = tx.objectStore(STORE_WORDS);
+    const idx = wordsStore.index("by_fileName");
+    const cursorReq = idx.openCursor(IDBKeyRange.only(fileName));
+    cursorReq.onsuccess = () => {
+      const cursor = cursorReq.result;
+      if (cursor) {
+        wordsStore.delete(cursor.primaryKey);
+        cursor.continue();
+      }
+    };
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function getSettings() {
+    const { store } = await txStore(STORE_SETTINGS, "readonly");
+    const result = await reqToPromise(store.get("global"));
+    return result || { ...DEFAULT_SETTINGS };
+  }
+
+  function putSettings(settings) {
+    getDB().then((db) => {
+      const tx = db.transaction(STORE_SETTINGS, "readwrite");
+      tx.objectStore(STORE_SETTINGS).put(settings);
+      tx.onerror = () => console.error("putSettings failed", tx.error);
+    });
+  }
+
+  function persistMarkChange(wordObj) {
+    putWord(wordObj);
+  }
+
+  /* ===================== ユーティリティ ===================== */
+  function makeWordId(fileName, word) {
+    return fileName + " " + word;
+  }
+
+  function stripExtension(name) {
+    const idx = name.lastIndexOf(".");
+    return idx === -1 ? name : name.slice(0, idx);
+  }
+
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function truncate(text, max) {
+    if (text.length <= max) return text;
+    return text.slice(0, max) + "...";
+  }
+
+  function showToast(message) {
+    const container = document.getElementById("toast-container");
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  /* ===================== CSV解析・ファイル管理 ===================== */
+  function parseCSV(text, fileName) {
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    text = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const lines = text.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+
+    const seen = new Set();
+    const wordRecords = [];
+    let skippedCount = 0;
+
+    for (const line of lines) {
+      const commaIdx = line.indexOf(",");
+      if (commaIdx === -1) { skippedCount++; continue; }
+      const word = line.slice(0, commaIdx).trim();
+      const translation = line.slice(commaIdx + 1).trim();
+      if (!word || !translation) { skippedCount++; continue; }
+      if (seen.has(word)) { skippedCount++; continue; }
+      seen.add(word);
+      wordRecords.push({
+        id: makeWordId(fileName, word),
+        fileName,
+        word,
+        translation,
+        mark: false,
+      });
+    }
+    return { fileName, wordRecords, skippedCount };
+  }
+
+  async function handleFileUpload(fileList) {
+    const files = Array.from(fileList);
+    for (const file of files) {
+      const fileName = stripExtension(file.name);
+      const existing = await getFile(fileName);
+      if (existing) {
+        showToast(`同名のファイルは追加できません: ${fileName}`);
+        continue;
+      }
+      const text = await file.text();
+      const { wordRecords } = parseCSV(text, fileName);
+      if (wordRecords.length === 0) {
+        showToast(`有効な単語が見つかりませんでした: ${fileName}`);
+        continue;
+      }
+      await addFileWithWords(
+        { fileName, enabled: true, uploadedAt: Date.now(), wordCount: wordRecords.length },
+        wordRecords
+      );
+    }
+    await renderFileList();
+    await refreshStartButtonState();
+  }
+
+  let pendingDeleteFileName = null;
+
+  function requestDeleteFile(fileName) {
+    pendingDeleteFileName = fileName;
+    document.getElementById("confirm-delete-message").textContent =
+      `「${fileName}」を削除しますか？この操作は取り消せません。`;
+    document.getElementById("modal-confirm-delete").showModal();
+  }
+
+  async function confirmDeleteFile() {
+    if (!pendingDeleteFileName) return;
+    await deleteFileAndWords(pendingDeleteFileName);
+    pendingDeleteFileName = null;
+    document.getElementById("modal-confirm-delete").close();
+    await renderFileList();
+    await refreshStartButtonState();
+  }
+
+  async function renderFileList() {
+    const files = await getAllFiles();
+    files.sort((a, b) => a.uploadedAt - b.uploadedAt);
+    const listEl = document.getElementById("file-list");
+    listEl.innerHTML = "";
+
+    if (files.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "file-empty";
+      empty.textContent = "ファイルがまだアップロードされていません";
+      listEl.appendChild(empty);
+      return;
+    }
+
+    for (const file of files) {
+      const row = document.createElement("div");
+      row.className = "file-row";
+
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "file-name";
+      nameSpan.textContent = file.fileName;
+      nameSpan.title = file.fileName;
+
+      const countSpan = document.createElement("span");
+      countSpan.className = "file-count";
+      countSpan.textContent = `${file.wordCount}語`;
+
+      const label = document.createElement("label");
+      label.className = "switch";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = file.enabled;
+      input.addEventListener("change", async () => {
+        file.enabled = input.checked;
+        await putFileRecord(file);
+        await refreshStartButtonState();
+      });
+      const slider = document.createElement("span");
+      slider.className = "slider";
+      label.appendChild(input);
+      label.appendChild(slider);
+
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "btn-delete";
+      delBtn.textContent = "✕";
+      delBtn.title = "削除";
+      delBtn.addEventListener("click", () => requestDeleteFile(file.fileName));
+
+      row.appendChild(nameSpan);
+      row.appendChild(countSpan);
+      row.appendChild(label);
+      row.appendChild(delBtn);
+      listEl.appendChild(row);
+    }
+  }
+
+  /* ===================== 設定画面ロジック ===================== */
+  let currentSettings = { ...DEFAULT_SETTINGS };
+
+  async function computeEligibleWordPool(settings) {
+    const files = await getAllFiles();
+    const enabledFiles = files.filter((f) => f.enabled);
+    let pool = [];
+    for (const file of enabledFiles) {
+      const words = await getWordsByFile(file.fileName);
+      pool = pool.concat(words);
+    }
+    if (settings.onlyMarked) {
+      pool = pool.filter((w) => w.mark === true);
+    }
+    return pool;
+  }
+
+  async function refreshStartButtonState() {
+    const pool = await computeEligibleWordPool(currentSettings);
+    const startBtn = document.getElementById("btn-start");
+    const countLabel = document.getElementById("eligible-count");
+    countLabel.textContent = `出題対象: ${pool.length}語`;
+    startBtn.disabled = pool.length === 0;
+  }
+
+  function applyModeUI() {
+    document.querySelectorAll("#mode-group .radio-option").forEach((el) => {
+      const isSelected = el.dataset.mode === currentSettings.mode;
+      el.classList.toggle("selected", isSelected);
+      el.querySelector("input").checked = isSelected;
+    });
+    const showSpellingRow = document.getElementById("row-show-spelling");
+    const showSpellingToggle = document.getElementById("toggle-show-spelling");
+    const isEnJa = currentSettings.mode === "en-ja";
+    showSpellingToggle.disabled = !isEnJa;
+    showSpellingRow.style.opacity = isEnJa ? "1" : "0.5";
+  }
+
+  async function renderSettingsScreen() {
+    currentSettings = await getSettings();
+    document.getElementById("toggle-auto-advance").checked = currentSettings.autoAdvance;
+    document.getElementById("toggle-only-marked").checked = currentSettings.onlyMarked;
+    document.getElementById("toggle-show-spelling").checked = currentSettings.showSpelling;
+    applyModeUI();
+    await renderFileList();
+    await refreshStartButtonState();
+  }
+
+  function wireSettingsEvents() {
+    document.getElementById("file-input").addEventListener("change", async (e) => {
+      if (e.target.files.length === 0) return;
+      await handleFileUpload(e.target.files);
+      e.target.value = "";
+    });
+
+    document.querySelectorAll("#mode-group .radio-option").forEach((el) => {
+      el.addEventListener("click", async () => {
+        currentSettings.mode = el.dataset.mode;
+        putSettings(currentSettings);
+        applyModeUI();
+      });
+    });
+
+    document.getElementById("toggle-auto-advance").addEventListener("change", (e) => {
+      currentSettings.autoAdvance = e.target.checked;
+      putSettings(currentSettings);
+    });
+    document.getElementById("toggle-only-marked").addEventListener("change", async (e) => {
+      currentSettings.onlyMarked = e.target.checked;
+      putSettings(currentSettings);
+      await refreshStartButtonState();
+    });
+    document.getElementById("toggle-show-spelling").addEventListener("change", (e) => {
+      currentSettings.showSpelling = e.target.checked;
+      putSettings(currentSettings);
+    });
+
+    document.getElementById("btn-start").addEventListener("click", async () => {
+      getAudioCtx();
+      const pool = await computeEligibleWordPool(currentSettings);
+      if (pool.length === 0) return;
+      startQuiz(pool, { ...currentSettings });
+    });
+
+    document.getElementById("btn-open-help").addEventListener("click", () => {
+      document.getElementById("modal-help").showModal();
+    });
+    document.getElementById("btn-close-help").addEventListener("click", () => {
+      document.getElementById("modal-help").close();
+    });
+    document.getElementById("btn-cancel-delete").addEventListener("click", () => {
+      pendingDeleteFileName = null;
+      document.getElementById("modal-confirm-delete").close();
+    });
+    document.getElementById("btn-confirm-delete").addEventListener("click", confirmDeleteFile);
+  }
+
+  /* ===================== 出題（クイズ）ロジック ===================== */
+  let session = null;
+
+  function beginSessionWithPool(pool, settingsSnapshot) {
+    session = {
+      settings: settingsSnapshot,
+      pool: shuffle(pool),
+      currentIndex: 0,
+      results: [],
+      currentQuestion: null,
+    };
+    showScreen("quiz");
+    presentQuestion();
+  }
+
+  function startQuiz(pool, settingsSnapshot) {
+    beginSessionWithPool(pool, settingsSnapshot);
+  }
+
+  function generateChoices(correctWord, pool) {
+    const candidates = shuffle(pool.filter((w) => w.id !== correctWord.id));
+    let distractors = candidates.slice(0, 3);
+
+    if (distractors.length < 3) {
+      const need = 3 - distractors.length;
+      const usedTexts = new Set([
+        correctWord.word, correctWord.translation,
+        ...distractors.map((d) => d.word),
+      ]);
+      const fallbackPool = shuffle(FALLBACK_WORDS).filter(
+        (fw) => !usedTexts.has(fw.word) && !usedTexts.has(fw.translation)
+      );
+      distractors = distractors.concat(fallbackPool.slice(0, need));
+    }
+
+    const choiceItems = shuffle([
+      { word: correctWord.word, translation: correctWord.translation, isCorrect: true },
+      ...distractors.map((d) => ({ word: d.word, translation: d.translation, isCorrect: false })),
+    ]);
+    const correctIndex = choiceItems.findIndex((c) => c.isCorrect);
+    return { choiceItems, correctIndex };
+  }
+
+  function clearQuestionTimer() {
+    if (session && session.currentQuestion && session.currentQuestion.timerId) {
+      clearTimeout(session.currentQuestion.timerId);
+    }
+  }
+
+  function presentQuestion() {
+    const wordItem = session.pool[session.currentIndex];
+    const { choiceItems, correctIndex } = generateChoices(wordItem, session.pool);
+
+    session.currentQuestion = {
+      word: wordItem,
+      choiceItems,
+      correctIndex,
+      startTimestamp: performance.now(),
+      timerId: null,
+      answered: false,
+      timedOut: false,
+    };
+
+    const isEnJa = session.settings.mode === "en-ja";
+
+    document.getElementById("quiz-filename").textContent = wordItem.fileName;
+    document.getElementById("quiz-progress").textContent =
+      `${session.currentIndex + 1} / ${session.pool.length}問`;
+
+    const promptEl = document.getElementById("prompt-text");
+    const audioBtn = document.getElementById("btn-play-audio");
+    const feedbackEl = document.getElementById("feedback-text");
+    feedbackEl.textContent = "";
+    feedbackEl.className = "feedback-text";
+
+    if (isEnJa) {
+      promptEl.textContent = session.settings.showSpelling ? wordItem.word : "";
+      audioBtn.style.display = "inline-block";
+      speakWord(wordItem.word);
+    } else {
+      promptEl.textContent = wordItem.translation;
+      audioBtn.style.display = "none";
+    }
+
+    document.getElementById("toggle-mark-quiz").checked = wordItem.mark === true;
+
+    const choicesEl = document.getElementById("choices");
+    choicesEl.innerHTML = "";
+    choiceItems.forEach((choice, idx) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "choice-btn";
+      const label = isEnJa ? choice.translation : choice.word;
+      btn.textContent = truncate(label, MAX_TRANSLATION_LEN);
+      btn.title = label;
+      btn.addEventListener("click", () => handleAnswer(idx));
+      choicesEl.appendChild(btn);
+    });
+
+    startTimerVisual();
+    session.currentQuestion.timerId = setTimeout(onTimeExpired, TIME_LIMIT_MS);
+  }
+
+  function startTimerVisual() {
+    const bar = document.getElementById("timer-bar");
+    bar.style.transition = "none";
+    bar.style.width = "100%";
+    void bar.offsetWidth;
+    requestAnimationFrame(() => {
+      bar.style.transition = `width ${TIME_LIMIT_MS}ms linear`;
+      bar.style.width = "0%";
+    });
+  }
+
+  function onTimeExpired() {
+    const q = session.currentQuestion;
+    if (!q) return;
+    q.timedOut = true;
+    if (session.settings.autoAdvance && !q.answered) {
+      disableChoiceButtons();
+      handleAnswer(null);
+    }
+  }
+
+  function disableChoiceButtons() {
+    document.querySelectorAll(".choice-btn").forEach((btn) => (btn.disabled = true));
+  }
+
+  function handleAnswer(choiceIndex) {
+    const q = session.currentQuestion;
+    if (!q || q.answered) return;
+    q.answered = true;
+    clearTimeout(q.timerId);
+    disableChoiceButtons();
+
+    const elapsed = performance.now() - q.startTimestamp;
+    const remainingFraction = Math.max(0, (TIME_LIMIT_MS - elapsed) / TIME_LIMIT_MS);
+    const isCorrect = choiceIndex !== null && choiceIndex === q.correctIndex;
+    const wordItem = q.word;
+
+    const choiceButtons = document.querySelectorAll(".choice-btn");
+    choiceButtons[q.correctIndex].classList.add("correct-answer");
+    if (choiceIndex !== null && choiceIndex !== q.correctIndex) {
+      choiceButtons[choiceIndex].classList.add("wrong-answer");
+    }
+
+    const feedbackEl = document.getElementById("feedback-text");
+
+    if (isCorrect) {
+      feedbackEl.textContent = speedFeedbackText(remainingFraction);
+      feedbackEl.className = "feedback-text correct";
+      playSFX("correct");
+    } else {
+      wordItem.mark = true;
+      persistMarkChange(wordItem);
+      document.getElementById("toggle-mark-quiz").checked = true;
+      feedbackEl.textContent = "不正解";
+      feedbackEl.className = "feedback-text incorrect";
+      playSFX("incorrect");
+    }
+
+    session.results.push({
+      id: wordItem.id,
+      fileName: wordItem.fileName,
+      word: wordItem.word,
+      translation: wordItem.translation,
+      correct: isCorrect,
+      mark: wordItem.mark === true,
+    });
+
+    setTimeout(advanceToNext, isCorrect ? CORRECT_DELAY_MS : INCORRECT_DELAY_MS);
+  }
+
+  function speedFeedbackText(remainingFraction) {
+    if (remainingFraction >= 0.8) return "Incredible!";
+    if (remainingFraction >= 0.6) return "Awesome!";
+    if (remainingFraction >= 0.4) return "Cool!";
+    if (remainingFraction >= 0.2) return "Nice!";
+    return "Phew!";
+  }
+
+  function advanceToNext() {
+    session.currentIndex++;
+    if (session.currentIndex >= session.pool.length) {
+      showMotivationThenReview();
+    } else {
+      presentQuestion();
+    }
+  }
+
+  function abortToSettings() {
+    clearQuestionTimer();
+    session = null;
+    showScreen("settings");
+    renderSettingsScreen();
+  }
+
+  function wireQuizEvents() {
+    document.getElementById("btn-play-audio").addEventListener("click", () => {
+      if (session && session.currentQuestion) {
+        speakWord(session.currentQuestion.word.word);
+      }
+    });
+    document.getElementById("toggle-mark-quiz").addEventListener("change", (e) => {
+      if (!session || !session.currentQuestion) return;
+      const wordItem = session.currentQuestion.word;
+      wordItem.mark = e.target.checked;
+      persistMarkChange(wordItem);
+      const resultEntry = session.results.find((r) => r.id === wordItem.id);
+      if (resultEntry) resultEntry.mark = wordItem.mark;
+    });
+    document.getElementById("btn-back-to-settings").addEventListener("click", abortToSettings);
+  }
+
+  /* ===================== 振り返り画面ロジック ===================== */
+  function showMotivationThenReview() {
+    const total = session.results.length;
+    const correctCount = session.results.filter((r) => r.correct).length;
+    const accuracy = total > 0 ? correctCount / total : 0;
+
+    let text = null;
+    if (accuracy === 1) text = "Perfect!";
+    else if (accuracy >= 0.8) text = "Great Job!";
+
+    if (text) {
+      const overlay = document.getElementById("motivation-overlay");
+      overlay.textContent = text;
+      overlay.style.display = "flex";
+      setTimeout(() => {
+        overlay.style.display = "none";
+        showScreen("review");
+        renderReviewTable();
+      }, MOTIVATION_DELAY_MS);
+    } else {
+      showScreen("review");
+      renderReviewTable();
+    }
+  }
+
+  function renderReviewTable() {
+    const tbody = document.getElementById("review-tbody");
+    tbody.innerHTML = "";
+
+    const correctCount = session.results.filter((r) => r.correct).length;
+    document.getElementById("btn-retry-missed").disabled = correctCount === session.results.length;
+
+    session.results.forEach((entry) => {
+      const tr = document.createElement("tr");
+
+      const wordTd = document.createElement("td");
+      wordTd.textContent = `${entry.word} / ${entry.translation}`;
+
+      const resultTd = document.createElement("td");
+      resultTd.textContent = entry.correct ? "○" : "✕";
+      resultTd.className = entry.correct ? "result-correct" : "result-incorrect";
+
+      const markTd = document.createElement("td");
+      const label = document.createElement("label");
+      label.className = "switch";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = entry.mark;
+      input.addEventListener("change", async () => {
+        entry.mark = input.checked;
+        const wordRecord = await getWord(entry.id);
+        if (wordRecord) {
+          wordRecord.mark = entry.mark;
+          persistMarkChange(wordRecord);
+        }
+      });
+      const slider = document.createElement("span");
+      slider.className = "slider";
+      label.appendChild(input);
+      label.appendChild(slider);
+      markTd.appendChild(label);
+
+      tr.appendChild(wordTd);
+      tr.appendChild(resultTd);
+      tr.appendChild(markTd);
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function retrySameSettings() {
+    const pool = await computeEligibleWordPool(session.settings);
+    if (pool.length === 0) {
+      showToast("出題対象の単語がありません");
+      showScreen("settings");
+      renderSettingsScreen();
+      return;
+    }
+    beginSessionWithPool(pool, session.settings);
+  }
+
+  async function retryMissedOnly() {
+    const missedIds = session.results.filter((r) => !r.correct).map((r) => r.id);
+    if (missedIds.length === 0) return;
+    const words = [];
+    for (const id of missedIds) {
+      const w = await getWord(id);
+      if (w) words.push(w);
+    }
+    if (words.length === 0) return;
+    beginSessionWithPool(words, session.settings);
+  }
+
+  function wireReviewEvents() {
+    document.getElementById("btn-retry-same").addEventListener("click", retrySameSettings);
+    document.getElementById("btn-retry-missed").addEventListener("click", retryMissedOnly);
+    document.getElementById("btn-back-to-settings-2").addEventListener("click", () => {
+      session = null;
+      showScreen("settings");
+      renderSettingsScreen();
+    });
+  }
+
+  /* ===================== 音声・SFXヘルパー ===================== */
+  let cachedEnglishVoice = null;
+
+  function pickEnglishVoice() {
+    const voices = speechSynthesis.getVoices();
+    if (!voices || voices.length === 0) return null;
+    const enVoices = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith("en"));
+    if (enVoices.length === 0) return null;
+    const usVoice = enVoices.find((v) => v.lang.toLowerCase().includes("us"));
+    return usVoice || enVoices[0];
+  }
+
+  function speakWord(word) {
+    if (!("speechSynthesis" in window)) return;
+    const audioBtn = document.getElementById("btn-play-audio");
+    speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(word);
+    utterance.lang = "en-US";
+    if (cachedEnglishVoice) utterance.voice = cachedEnglishVoice;
+
+    if (audioBtn.style.display !== "none") audioBtn.disabled = true;
+    const reenable = () => { audioBtn.disabled = false; };
+    utterance.onend = reenable;
+    utterance.onerror = reenable;
+    speechSynthesis.speak(utterance);
+  }
+
+  function initSpeechVoices() {
+    if (!("speechSynthesis" in window)) return;
+    const update = () => { cachedEnglishVoice = pickEnglishVoice(); };
+    update();
+    speechSynthesis.onvoiceschanged = update;
+  }
+
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AC();
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playSFX(type) {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    const now = ctx.currentTime;
+
+    if (type === "correct") {
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(660, now);
+      osc.frequency.linearRampToValueAtTime(880, now + 0.15);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    } else {
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(300, now);
+      osc.frequency.linearRampToValueAtTime(150, now + 0.25);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      osc.start(now);
+      osc.stop(now + 0.3);
+    }
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+  }
+
+  /* ===================== 画面切替ヘルパー ===================== */
+  function showScreen(name) {
+    document.querySelectorAll(".screen").forEach((el) => el.classList.remove("active"));
+    document.getElementById(`screen-${name}`).classList.add("active");
+  }
+
+  /* ===================== ブートストラップ ===================== */
+  async function init() {
+    wireSettingsEvents();
+    wireQuizEvents();
+    wireReviewEvents();
+    initSpeechVoices();
+    await renderSettingsScreen();
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+})();
+</script>
+</body>
+</html>
