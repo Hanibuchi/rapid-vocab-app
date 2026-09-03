@@ -1252,15 +1252,17 @@ whereby, それによって〜する`,
   }
 
   async function seedDefaultWordSets(settings) {
+    let index = 0;
     for (const [fileName, content] of Object.entries(DEFAULT_WORD_SETS)) {
       const existing = await getFile(fileName);
       if (existing) continue;
       const { wordRecords } = parseCSV(content, fileName);
       if (wordRecords.length === 0) continue;
       await addFileWithWords(
-        { fileName, enabled: true, uploadedAt: Date.now(), wordCount: wordRecords.length },
+        { fileName, enabled: index === 0, uploadedAt: Date.now(), wordCount: wordRecords.length },
         wordRecords
       );
+      index++;
     }
     settings.defaultsSeeded = true;
     putSettings(settings);
