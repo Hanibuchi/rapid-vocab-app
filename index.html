@@ -1321,9 +1321,12 @@ whereby, それによって〜する`,
       nameSpan.textContent = file.fileName;
       nameSpan.title = file.fileName;
 
+      const words = await getWordsByFile(file.fileName);
+      const markedCount = words.filter((w) => w.mark).length;
+
       const countSpan = document.createElement("span");
       countSpan.className = "file-count";
-      countSpan.textContent = `${file.wordCount}語`;
+      countSpan.textContent = `${file.wordCount}語（チェックつき${markedCount}語）`;
 
       const label = document.createElement("label");
       label.className = "switch";
