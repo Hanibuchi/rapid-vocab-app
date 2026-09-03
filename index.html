@@ -63,6 +63,16 @@
     gap: 8px;
   }
   .file-row:last-child { border-bottom: none; }
+  .select-all-row {
+    border-bottom: none;
+    border-left: 1px solid transparent;
+    border-right: 1px solid transparent;
+    padding-top: 0;
+    padding-bottom: 8px;
+    font-weight: 500;
+    color: var(--color-muted);
+  }
+  .select-all-row .switch { margin-right: 16px; }
   .file-name {
     flex: 1;
     overflow: hidden;
@@ -239,6 +249,15 @@
 
     <div class="card">
       <h2>単語セット</h2>
+      <div class="file-row select-all-row">
+        <span class="file-name">すべて選択 / 解除</span>
+        <span class="file-count"></span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-select-all">
+          <span class="slider"></span>
+        </label>
+        <button type="button" class="btn-delete" style="visibility:hidden;" tabindex="-1" aria-hidden="true">✕</button>
+      </div>
       <div class="file-list" id="file-list"></div>
       <div class="upload-row">
         <input type="file" id="file-input" accept=".txt,.csv" multiple style="flex:1;">
@@ -1228,11 +1247,26 @@ whereby, それによって〜する`,
     await refreshStartButtonState();
   }
 
+  function updateSelectAllToggleState(files) {
+    const selectAllInput = document.getElementById("toggle-select-all");
+    selectAllInput.checked = files.length > 0 && files.every((f) => f.enabled);
+    selectAllInput.disabled = files.length === 0;
+  }
+
+  async function setAllFilesEnabled(enabled) {
+    const files = await getAllFiles();
+    for (const file of files) {
+      file.enabled = enabled;
+      await putFileRecord(file);
+    }
+  }
+
   async function renderFileList() {
     const files = await getAllFiles();
     files.sort((a, b) => a.uploadedAt - b.uploadedAt);
     const listEl = document.getElementById("file-list");
     listEl.innerHTML = "";
+    updateSelectAllToggleState(files);
 
     if (files.length === 0) {
       const empty = document.createElement("div");
@@ -1263,6 +1297,7 @@ whereby, それによって〜する`,
       input.addEventListener("change", async () => {
         file.enabled = input.checked;
         await putFileRecord(file);
+        updateSelectAllToggleState(await getAllFiles());
         await refreshStartButtonState();
       });
       const slider = document.createElement("span");
@@ -1338,6 +1373,12 @@ whereby, それによって〜する`,
       if (e.target.files.length === 0) return;
       await handleFileUpload(e.target.files);
       e.target.value = "";
+    });
+
+    document.getElementById("toggle-select-all").addEventListener("change", async (e) => {
+      await setAllFilesEnabled(e.target.checked);
+      await renderFileList();
+      await refreshStartButtonState();
     });
 
     document.querySelectorAll("#mode-group .radio-option").forEach((el) => {
@@ -1606,6 +1647,8 @@ whereby, それによって〜する`,
     if (accuracy === 1) text = "Perfect!";
     else if (accuracy >= 0.8) text = "Great Job!";
 
+    playResultSFX(accuracy);
+
     if (text) {
       const overlay = document.getElementById("motivation-overlay");
       overlay.textContent = text;
@@ -1768,6 +1811,46 @@ whereby, それによって〜する`,
       osc.stop(now + 0.3);
     }
     osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+  }
+
+  function playResultSFX(accuracy) {
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    let notes, noteDuration, peakGain;
+
+    if (accuracy === 1) {
+      notes = [523.25, 659.25, 783.99, 1046.5];
+      noteDuration = 0.15;
+      peakGain = 0.28;
+    } else if (accuracy >= 0.8) {
+      notes = [523.25, 659.25, 783.99];
+      noteDuration = 0.16;
+      peakGain = 0.25;
+    } else if (accuracy >= 0.5) {
+      notes = [493.88, 587.33];
+      noteDuration = 0.18;
+      peakGain = 0.22;
+    } else {
+      notes = [440];
+      noteDuration = 0.25;
+      peakGain = 0.18;
+    }
+
+    notes.forEach((freq, i) => {
+      const startAt = now + i * noteDuration;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, startAt);
+      gain.gain.setValueAtTime(0.0001, startAt);
+      gain.gain.exponentialRampToValueAtTime(peakGain, startAt + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startAt + noteDuration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startAt);
+      osc.stop(startAt + noteDuration + 0.05);
+      osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+    });
   }
 
   /* ===================== 画面切替ヘルパー ===================== */
