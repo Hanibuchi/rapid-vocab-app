@@ -64,6 +64,17 @@
     gap: 8px;
   }
   .file-row:last-child { border-bottom: none; }
+  .file-row.dragging { opacity: 0.5; background: var(--color-bg); }
+  .drag-handle {
+    flex-shrink: 0;
+    cursor: grab;
+    color: var(--color-muted);
+    font-size: 1rem;
+    line-height: 1;
+    padding: 4px 4px;
+    touch-action: none;
+    user-select: none;
+  }
   .select-all-row {
     border-bottom: none;
     border-left: 1px solid transparent;
@@ -285,6 +296,7 @@
     <div class="card">
       <h2>単語セット</h2>
       <div class="file-row select-all-row">
+        <span class="drag-handle" style="visibility:hidden;" aria-hidden="true">⠿</span>
         <span class="file-name">すべて選択 / 解除</span>
         <span class="file-count"></span>
         <label class="switch">
@@ -1322,9 +1334,69 @@ whereby, それによって〜する`,
     }
   }
 
+  async function persistFileOrder(files) {
+    const needsMigration = files.some((f) => f.order === undefined || f.order === null);
+    if (!needsMigration) return;
+    for (let i = 0; i < files.length; i++) {
+      if (files[i].order !== i) {
+        files[i].order = i;
+        await putFileRecord(files[i]);
+      }
+    }
+  }
+
+  function makeFileListSortable(listEl, onReorder) {
+    let draggingRow = null;
+
+    function getRows() {
+      return Array.from(listEl.querySelectorAll(".file-row"));
+    }
+
+    function handlePointerMove(e) {
+      if (!draggingRow) return;
+      const y = e.clientY;
+      const siblings = getRows().filter((r) => r !== draggingRow);
+      let nextSibling = null;
+      for (const sibling of siblings) {
+        const rect = sibling.getBoundingClientRect();
+        if (y < rect.top + rect.height / 2) {
+          nextSibling = sibling;
+          break;
+        }
+      }
+      if (nextSibling) {
+        listEl.insertBefore(draggingRow, nextSibling);
+      } else {
+        listEl.appendChild(draggingRow);
+      }
+    }
+
+    async function handlePointerUp() {
+      if (!draggingRow) return;
+      const row = draggingRow;
+      draggingRow = null;
+      row.classList.remove("dragging");
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerUp);
+      const orderedFileNames = getRows().map((r) => r.dataset.fileName);
+      await onReorder(orderedFileNames);
+    }
+
+    return function attachDragHandle(handle, row) {
+      handle.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        draggingRow = row;
+        row.classList.add("dragging");
+        document.addEventListener("pointermove", handlePointerMove);
+        document.addEventListener("pointerup", handlePointerUp);
+      });
+    };
+  }
+
   async function renderFileList() {
     const files = await getAllFiles();
-    files.sort((a, b) => a.uploadedAt - b.uploadedAt);
+    files.sort((a, b) => (a.order ?? a.uploadedAt) - (b.order ?? b.uploadedAt));
+    await persistFileOrder(files);
     const listEl = document.getElementById("file-list");
     listEl.innerHTML = "";
     updateSelectAllToggleState(files);
@@ -1337,9 +1409,27 @@ whereby, それによって〜する`,
       return;
     }
 
+    const attachDragHandle = makeFileListSortable(listEl, async (orderedFileNames) => {
+      const byName = new Map(files.map((f) => [f.fileName, f]));
+      for (let i = 0; i < orderedFileNames.length; i++) {
+        const f = byName.get(orderedFileNames[i]);
+        if (f && f.order !== i) {
+          f.order = i;
+          await putFileRecord(f);
+        }
+      }
+    });
+
     for (const file of files) {
       const row = document.createElement("div");
       row.className = "file-row";
+      row.dataset.fileName = file.fileName;
+
+      const dragHandle = document.createElement("span");
+      dragHandle.className = "drag-handle";
+      dragHandle.textContent = "⠿";
+      dragHandle.title = "ドラッグして並び替え";
+      attachDragHandle(dragHandle, row);
 
       const nameSpan = document.createElement("span");
       nameSpan.className = "file-name";
@@ -1376,6 +1466,7 @@ whereby, それによって〜する`,
       delBtn.title = "削除";
       delBtn.addEventListener("click", () => requestDeleteFile(file.fileName));
 
+      row.appendChild(dragHandle);
       row.appendChild(nameSpan);
       row.appendChild(countSpan);
       row.appendChild(label);
