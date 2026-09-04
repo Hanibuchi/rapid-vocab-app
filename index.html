@@ -93,6 +93,9 @@
     font-size: 0.95rem;
   }
   .file-count { color: var(--color-muted); font-size: 0.8rem; margin-right: 4px; }
+  @media (max-width: 480px) {
+    .file-count .mark-label { display: none; }
+  }
   .file-empty { padding: 16px; color: var(--color-muted); text-align: center; font-size: 0.9rem; }
 
   .btn-delete {
@@ -1479,7 +1482,10 @@ whereby, それによって〜する`,
 
       const countSpan = document.createElement("span");
       countSpan.className = "file-count";
-      countSpan.textContent = `${file.wordCount}語（チェックつき${markedCount}語）`;
+      const markLabel = document.createElement("span");
+      markLabel.className = "mark-label";
+      markLabel.textContent = "チェックつき";
+      countSpan.append(`${file.wordCount}語（`, markLabel, `${markedCount}語）`);
 
       const label = document.createElement("label");
       label.className = "switch";
