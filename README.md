@@ -17,11 +17,9 @@ AWL（Academic Word List）レベル1〜10、合計570語の単語セットが�
 
 インストール不要で、リンクを開くだけで使えます。
 
-1. 以下のURLをブラウザで開く
+1. 以下のリンクをクリックして開く
 
-   ```
-   https://hanibuchi.github.io/rapid-vocab-app/
-   ```
+   **https://hanibuchi.github.io/rapid-vocab-app/**
 
 2. これだけで学習を始められます。
 
