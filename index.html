@@ -236,6 +236,23 @@
   .choice-btn.correct-answer { border-color: var(--color-correct); background: #ecfdf3; color: #15803d; font-weight: bold; }
   .choice-btn.wrong-answer { border-color: var(--color-incorrect); background: #fef2f2; color: #b91c1c; }
 
+  #self-assess { grid-template-columns: 1fr; }
+
+  .recall-answer {
+    grid-column: 1 / -1;
+    background: none;
+    border: none;
+    padding: 14px 8px;
+    font-size: 1.2rem;
+    line-height: 1.3;
+    font-weight: bold;
+    text-align: center;
+    cursor: default;
+    white-space: normal;
+  }
+  .recall-answer.correct-answer { color: #15803d; }
+  .recall-answer.wrong-answer { color: #b91c1c; }
+
   .btn-dont-know {
     display: block;
     width: 100%;
@@ -368,6 +385,15 @@
           <span class="slider"></span>
         </label>
       </div>
+      <div class="row">
+        <div>
+          <div class="row-label">選択肢を表示しない</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="toggle-hide-choices">
+          <span class="slider"></span>
+        </label>
+      </div>
     </div>
 
     <div id="eligible-count" class="row-sub" style="margin-bottom:8px;"></div>
@@ -390,6 +416,10 @@
 
     <div class="choices" id="choices"></div>
     <button type="button" class="btn-dont-know" id="btn-dont-know">わからない</button>
+    <div class="choices" id="self-assess" style="display:none;">
+      <button type="button" class="choice-btn" id="btn-recall-yes">わかる</button>
+      <button type="button" class="choice-btn" id="btn-recall-no">わからない</button>
+    </div>
 
     <div class="quiz-footer">
       <div class="mark-row">
@@ -487,6 +517,7 @@ water,水</pre>
     autoAdvance: true,
     onlyMarked: false,
     showSpelling: true,
+    hideChoices: false,
     timeLimitSec: 3,
     defaultsSeeded: false,
   };
@@ -1563,6 +1594,7 @@ whereby, それによって〜する`,
     document.getElementById("toggle-auto-advance").checked = currentSettings.autoAdvance;
     document.getElementById("toggle-only-marked").checked = currentSettings.onlyMarked;
     document.getElementById("toggle-show-spelling").checked = currentSettings.showSpelling;
+    document.getElementById("toggle-hide-choices").checked = currentSettings.hideChoices;
     document.getElementById("input-time-limit").value = currentSettings.timeLimitSec;
     applyModeUI();
     await renderFileList();
@@ -1615,6 +1647,10 @@ whereby, それによって〜する`,
     });
     document.getElementById("toggle-show-spelling").addEventListener("change", (e) => {
       currentSettings.showSpelling = e.target.checked;
+      putSettings(currentSettings);
+    });
+    document.getElementById("toggle-hide-choices").addEventListener("change", (e) => {
+      currentSettings.hideChoices = e.target.checked;
       putSettings(currentSettings);
     });
 
@@ -1743,20 +1779,39 @@ whereby, それによって〜する`,
 
     document.getElementById("toggle-mark-quiz").checked = wordItem.mark === true;
 
-    document.getElementById("btn-dont-know").disabled = false;
-
     const choicesEl = document.getElementById("choices");
     choicesEl.innerHTML = "";
-    choiceItems.forEach((choice, idx) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "choice-btn";
-      const label = isEnJa ? choice.translation : choice.word;
-      btn.textContent = truncate(label, MAX_TRANSLATION_LEN);
-      btn.title = label;
-      btn.addEventListener("click", () => handleAnswer(idx));
-      choicesEl.appendChild(btn);
-    });
+
+    const dontKnowBtn = document.getElementById("btn-dont-know");
+    const selfAssessEl = document.getElementById("self-assess");
+    const recallYesBtn = document.getElementById("btn-recall-yes");
+    const recallNoBtn = document.getElementById("btn-recall-no");
+
+    if (session.settings.hideChoices) {
+      dontKnowBtn.style.display = "none";
+      selfAssessEl.style.display = "";
+      recallYesBtn.disabled = false;
+      recallNoBtn.disabled = false;
+      const placeholder = document.createElement("div");
+      placeholder.className = "recall-answer";
+      placeholder.style.visibility = "hidden";
+      placeholder.textContent = " ";
+      choicesEl.appendChild(placeholder);
+    } else {
+      selfAssessEl.style.display = "none";
+      dontKnowBtn.style.display = "";
+      dontKnowBtn.disabled = false;
+      choiceItems.forEach((choice, idx) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "choice-btn";
+        const label = isEnJa ? choice.translation : choice.word;
+        btn.textContent = truncate(label, MAX_TRANSLATION_LEN);
+        btn.title = label;
+        btn.addEventListener("click", () => handleAnswer(idx));
+        choicesEl.appendChild(btn);
+      });
+    }
 
     const timeLimitMs = session.settings.timeLimitSec * 1000;
     startTimerVisual(timeLimitMs);
@@ -1787,9 +1842,22 @@ whereby, それによって〜する`,
   function disableChoiceButtons() {
     document.querySelectorAll(".choice-btn").forEach((btn) => (btn.disabled = true));
     document.getElementById("btn-dont-know").disabled = true;
+    document.getElementById("btn-recall-yes").disabled = true;
+    document.getElementById("btn-recall-no").disabled = true;
   }
 
   function handleAnswer(choiceIndex) {
+    const q = session.currentQuestion;
+    if (!q || q.answered) return;
+    const isCorrect = choiceIndex !== null && choiceIndex === q.correctIndex;
+    finishQuestion(isCorrect, choiceIndex);
+  }
+
+  function handleSelfAssessment(knew) {
+    finishQuestion(knew, null);
+  }
+
+  function finishQuestion(isCorrect, choiceIndex) {
     const q = session.currentQuestion;
     if (!q || q.answered) return;
     q.answered = true;
@@ -1799,13 +1867,22 @@ whereby, それによって〜する`,
     const timeLimitMs = session.settings.timeLimitSec * 1000;
     const elapsed = performance.now() - q.startTimestamp;
     const remainingFraction = Math.max(0, (timeLimitMs - elapsed) / timeLimitMs);
-    const isCorrect = choiceIndex !== null && choiceIndex === q.correctIndex;
     const wordItem = q.word;
 
-    const choiceButtons = document.querySelectorAll(".choice-btn");
-    choiceButtons[q.correctIndex].classList.add("correct-answer");
-    if (choiceIndex !== null && choiceIndex !== q.correctIndex) {
-      choiceButtons[choiceIndex].classList.add("wrong-answer");
+    if (session.settings.hideChoices) {
+      const isEnJa = session.settings.mode === "en-ja";
+      const answerLabel = isEnJa ? wordItem.translation : wordItem.word;
+      const answerEl = document.getElementById("choices").firstElementChild;
+      answerEl.className = "recall-answer " + (isCorrect ? "correct-answer" : "wrong-answer");
+      answerEl.textContent = truncate(answerLabel, MAX_TRANSLATION_LEN);
+      answerEl.title = answerLabel;
+      answerEl.style.visibility = "visible";
+    } else {
+      const choiceButtons = document.querySelectorAll(".choice-btn");
+      choiceButtons[q.correctIndex].classList.add("correct-answer");
+      if (choiceIndex !== null && choiceIndex !== q.correctIndex) {
+        choiceButtons[choiceIndex].classList.add("wrong-answer");
+      }
     }
 
     const feedbackEl = document.getElementById("feedback-text");
@@ -1876,6 +1953,12 @@ whereby, それによって〜する`,
     document.getElementById("btn-back-to-settings").addEventListener("click", abortToSettings);
     document.getElementById("btn-dont-know").addEventListener("click", () => {
       handleAnswer(null);
+    });
+    document.getElementById("btn-recall-yes").addEventListener("click", () => {
+      handleSelfAssessment(true);
+    });
+    document.getElementById("btn-recall-no").addEventListener("click", () => {
+      handleSelfAssessment(false);
     });
   }
 
