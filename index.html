@@ -280,10 +280,15 @@
   table.review-table th, table.review-table td {
     padding: 8px 6px; border-bottom: 1px solid var(--color-border); text-align: left;
   }
+  table.review-table thead th {
+    position: sticky; top: 0; background: var(--color-surface); z-index: 1;
+    padding-top: 24px;
+  }
   table.review-table td.result-correct { color: var(--color-correct); font-weight: bold; }
   table.review-table td.result-incorrect { color: var(--color-incorrect); font-weight: bold; }
   .review-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
-  .review-scroll { max-height: 360px; overflow-y: auto; }
+  .review-scroll { max-height: 360px; overflow-y: auto; padding-top: 0; }
+  #review-filenames { margin-bottom: 8px; }
 
   dialog {
     border: none; border-radius: 12px; padding: 20px; max-width: 480px; width: 90%;
@@ -436,6 +441,7 @@
   <!-- ===== REVIEW SCREEN ===== -->
   <section id="screen-review" class="screen">
     <h1>結果</h1>
+    <div id="review-filenames" class="row-sub"></div>
     <div class="card review-scroll">
       <table class="review-table">
         <thead>
@@ -1992,6 +1998,9 @@ whereby, それによって〜する`,
   function renderReviewTable() {
     const tbody = document.getElementById("review-tbody");
     tbody.innerHTML = "";
+
+    const fileNames = [...new Set(session.results.map((r) => r.fileName))];
+    document.getElementById("review-filenames").textContent = fileNames.join("、");
 
     const correctCount = session.results.filter((r) => r.correct).length;
     document.getElementById("btn-retry-missed").disabled = correctCount === session.results.length;
